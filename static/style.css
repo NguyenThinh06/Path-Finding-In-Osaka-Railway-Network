@@ -1,0 +1,291 @@
+:root {
+    --bg:        #0d0f14;
+    --panel:     #13161e;
+    --border:    #2a2f3e;
+    --accent:    #e8492a;
+    --gold:      #f5c842;
+    --teal:      #38c4b8;
+    --text:      #d4daf0;
+    --muted:     #6b7494;
+    --success:   #4caf7d;
+    --font-mono: 'Space Mono', monospace;
+    --font-jp:   'Noto Sans JP', sans-serif;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+}
+
+#map {
+    position: absolute;
+    inset: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Panel & Controls
+   ────────────────────────────────────────────────────────────── */
+
+#panel {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 1000;
+    width: 240px;
+    background: rgba(13, 15, 20, 0.92);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    backdrop-filter: blur(14px);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+#panel-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(232, 73, 42, 0.12), rgba(245, 200, 66, 0.06));
+}
+
+#panel-header .title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-transform: uppercase;
+}
+
+#panel-header .subtitle {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    font-family: var(--font-jp);
+    letter-spacing: 1px;
+}
+
+#panel-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+select {
+    width: 100%;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7494'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+
+select:focus {
+    border-color: var(--teal);
+}
+
+.btn {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn:hover {
+    border-color: var(--teal);
+    color: var(--teal);
+    background: rgba(56, 196, 184, 0.06);
+}
+
+.btn.danger:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(232, 73, 42, 0.06);
+}
+
+.btn .icon {
+    font-size: 13px;
+}
+
+.divider {
+    height: 1px;
+    background: var(--border);
+}
+
+#setup-section {
+    display: none;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Stats Panel
+   ────────────────────────────────────────────────────────────── */
+
+#stats {
+    position: absolute;
+    bottom: 28px;
+    right: 16px;
+    z-index: 1000;
+    width: 230px;
+    background: rgba(13, 15, 20, 0.92);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    backdrop-filter: blur(14px);
+    padding: 14px;
+    font-size: 11px;
+    display: none;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+#stats .stat-title {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+#stats .row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    align-items: baseline;
+}
+
+#stats .row .key {
+    color: var(--muted);
+    font-size: 10px;
+}
+
+#stats .row .val {
+    color: var(--text);
+    font-weight: 700;
+}
+
+#stats .row .val.accent {
+    color: var(--accent);
+}
+
+#stats .row .val.gold {
+    color: var(--gold);
+}
+
+#stats .row .val.teal {
+    color: var(--teal);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Status Bar
+   ────────────────────────────────────────────────────────────── */
+
+#statusbar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    z-index: 1000;
+    background: rgba(13, 15, 20, 0.88);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    gap: 12px;
+}
+
+#statusbar .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+#status-text {
+    flex: 1;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Mode Badge
+   ────────────────────────────────────────────────────────────── */
+
+#mode-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 700;
+    border: 1px solid;
+    pointer-events: none;
+}
+
+#mode-badge.find {
+    background: rgba(232, 73, 42, 0.12);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+#mode-badge.setup {
+    background: rgba(56, 196, 184, 0.12);
+    color: var(--teal);
+    border-color: var(--teal);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Leaflet Overrides
+   ────────────────────────────────────────────────────────────── */
+
+.leaflet-control-attribution {
+    font-size: 9px !important;
+    opacity: 0.4;
+}

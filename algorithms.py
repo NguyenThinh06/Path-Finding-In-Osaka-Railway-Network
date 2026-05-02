@@ -36,6 +36,10 @@ def haversine(lat1, lon1, lat2, lon2) -> float:
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+
+
+
+
 def _reconstruct(came_from, node):
     path = [node]
     while node in came_from:
@@ -53,6 +57,29 @@ def _path_cost(path, adjacency):
         u, v = path[i], path[i + 1]
         total += adj_dict.get(u, {}).get(v, 0.0)
     return total
+
+
+def _shortest_path_between(adjacency, node_coords, source, target):
+    """Compute shortest path and cost between two nodes using A*."""
+    try:
+        path, cost, _ = astar(adjacency, node_coords, source, target)
+        return path, cost
+    except ValueError:
+        return None, math.inf
+
+
+def _build_distance_matrix(adjacency, node_coords, important_nodes):
+    """
+    Build a distance matrix between important nodes (gates).
+    Returns: { (node_i, node_j): (cost, path) }
+    """
+    dist_matrix = {}
+    for i, node_a in enumerate(important_nodes):
+        for j, node_b in enumerate(important_nodes):
+            if i != j:
+                path, cost = _shortest_path_between(adjacency, node_coords, node_a, node_b)
+                dist_matrix[(node_a, node_b)] = (cost, path)
+    return dist_matrix
 
 
 
@@ -191,6 +218,231 @@ def greedy_bfs(adjacency, node_coords, source, target):
 
 
 # ──────────────────────────────────────────────────────────────
+#  TSP Algorithms (Travelling Salesman Problem)
+# ──────────────────────────────────────────────────────────────
+
+def _tsp_brute_force(dist_matrix, nodes):
+    """
+    Brute force TSP: try all permutations and find minimum cost cycle.
+    nodes: list of nodes to visit (excluding start which is nodes[0])
+    Returns: (best_tour, total_cost) where tour is ordered list of nodes
+    """
+    from itertools import permutations
+    
+    if len(nodes) <= 1:
+        return nodes, 0.0
+    
+    start = nodes[0]
+    remaining = nodes[1:]
+    
+    best_cost = math.inf
+    best_tour = None
+    
+    for perm in permutations(remaining):
+        tour = [start] + list(perm)
+        cost = 0.0
+        for i in range(len(tour)):
+            u, v = tour[i], tour[(i + 1) % len(tour)]
+            edge_cost = dist_matrix.get((u, v), (math.inf, None))[0]
+            cost += edge_cost
+        
+        if cost < best_cost:
+            best_cost = cost
+            best_tour = tour
+    
+    return best_tour, best_cost
+
+
+def _tsp_greedy(dist_matrix, nodes):
+    """
+    Greedy TSP: nearest neighbor heuristic.
+    Start from first node, always go to nearest unvisited node.
+    Returns: (tour, total_cost)
+    """
+    if len(nodes) <= 1:
+        return nodes, 0.0
+    
+    current = nodes[0]
+    unvisited = set(nodes[1:])
+    tour = [current]
+    total_cost = 0.0
+    
+    while unvisited:
+        nearest = min(unvisited, 
+                     key=lambda n: dist_matrix.get((current, n), (math.inf, None))[0])
+        edge_cost = dist_matrix.get((current, nearest), (math.inf, None))[0]
+        total_cost += edge_cost
+        tour.append(nearest)
+        unvisited.remove(nearest)
+        current = nearest
+    
+    # Return to start
+    edge_cost = dist_matrix.get((current, nodes[0]), (math.inf, None))[0]
+    total_cost += edge_cost
+    
+    return tour, total_cost
+
+
+def _tsp_branch_and_bound(dist_matrix, nodes):
+    """
+    Branch and bound TSP: more efficient than brute force.
+    Prunes branches that exceed current best cost.
+    Returns: (tour, total_cost)
+    """
+    if len(nodes) <= 1:
+        return nodes, 0.0
+    
+    start = nodes[0]
+    remaining = nodes[1:]
+    
+    best_cost = [math.inf]
+    best_tour = [None]
+    
+    def lower_bound(current_path, unvisited):
+        """Estimate minimum cost to complete tour from here."""
+        cost = 0.0
+        last = current_path[-1]
+        
+        if unvisited:
+            # Cost to nearest in unvisited
+            nearest_cost = min(dist_matrix.get((last, u), (math.inf, None))[0] 
+                             for u in unvisited)
+            cost += nearest_cost
+            
+            # Rough estimate: min edge between unvisited nodes
+            if len(unvisited) > 1:
+                min_edges = sorted([dist_matrix.get((u, v), (math.inf, None))[0]
+                                   for u in unvisited for v in unvisited if u != v])
+                cost += sum(min_edges[:len(unvisited)-1]) / 2
+        else:
+            # Return to start
+            cost += dist_matrix.get((last, start), (math.inf, None))[0]
+        
+        return cost
+    
+    def branch_and_bound_helper(current_path, unvisited, current_cost):
+        if current_cost >= best_cost[0]:
+            return  # Prune
+        
+        if not unvisited:
+            # Complete tour
+            final_cost = current_cost + dist_matrix.get((current_path[-1], start), (math.inf, None))[0]
+            if final_cost < best_cost[0]:
+                best_cost[0] = final_cost
+                best_tour[0] = current_path + [start]
+            return
+        
+        for node in unvisited:
+            edge_cost = dist_matrix.get((current_path[-1], node), (math.inf, None))[0]
+            new_cost = current_cost + edge_cost
+            
+            # Estimate lower bound
+            estimated = new_cost + lower_bound(current_path + [node], unvisited - {node})
+            
+            if estimated < best_cost[0]:
+                branch_and_bound_helper(
+                    current_path + [node],
+                    unvisited - {node},
+                    new_cost
+                )
+    
+    branch_and_bound_helper([start], set(remaining), 0.0)
+    
+    if best_tour[0] is None:
+        # Fallback to greedy
+        return _tsp_greedy(dist_matrix, nodes)
+    
+    return best_tour[0], best_cost[0]
+
+
+# ──────────────────────────────────────────────────────────────
+#  Waypoint-constrained pathfinding
+# ──────────────────────────────────────────────────────────────
+
+def find_path_via_waypoints(adjacency, node_coords, source, target, 
+                            mandatory_waypoints, tsp_method="greedy"):
+    """
+    Find shortest path from source to target passing through mandatory waypoints.
+    
+    Args:
+        adjacency: { node_id: [(neighbour_id, weight_m), ...] }
+        node_coords: { node_id: (lat, lon) }
+        source: start node
+        target: end node
+        mandatory_waypoints: set/list of node ids that must be visited
+        tsp_method: "brute_force", "greedy", or "branch_and_bound"
+    
+    Returns:
+        (full_path, total_cost, nodes_expanded_info)
+        where full_path is list of node ids visiting all waypoints in optimal order
+    """
+    
+    # Validate inputs
+    if not mandatory_waypoints:
+        return astar(adjacency, node_coords, source, target)
+    
+    # Build list of important nodes: source + target + waypoints
+    important_nodes = [source] + list(mandatory_waypoints) + [target]
+    important_nodes = list(dict.fromkeys(important_nodes))  # Remove duplicates, preserve order
+    
+    # Step 1: Compute distance matrix between all important nodes
+    dist_matrix = _build_distance_matrix(adjacency, node_coords, important_nodes)
+    
+    # Check for unreachable nodes
+    for (u, v), (cost, _) in dist_matrix.items():
+        if cost == math.inf:
+            raise ValueError(f"No path exists between {u} and {v}")
+    
+    # Step 2: Create virtual node D for TSP conversion
+    # D is dummy node: B → D (cost 0), D → A (cost 0)
+    # This converts path-finding to cycle-finding
+    nodes_for_tsp = [source] + list(mandatory_waypoints) + [target]
+    
+    # Add dummy node for cycle closure
+    dummy = "DUMMY_END_NODE"
+    
+    # Extend distance matrix with dummy node edges
+    dist_matrix[(target, dummy)] = (0.0, [])      # B → D (cost 0)
+    dist_matrix[(dummy, source)] = (0.0, [])      # D → A (cost 0)
+    
+    nodes_with_dummy = nodes_for_tsp + [dummy]
+    
+    # Step 3: Solve TSP
+    if tsp_method == "brute_force":
+        tsp_tour, tsp_cost = _tsp_brute_force(dist_matrix, nodes_with_dummy)
+    elif tsp_method == "branch_and_bound":
+        tsp_tour, tsp_cost = _tsp_branch_and_bound(dist_matrix, nodes_with_dummy)
+    else:  # greedy (default)
+        tsp_tour, tsp_cost = _tsp_greedy(dist_matrix, nodes_with_dummy)
+    
+    # Step 4: Extract path from TSP tour (remove dummy node D)
+    # Find where dummy is and extract source → ... → target path
+    dummy_idx = tsp_tour.index(dummy)
+    
+    # Reorder to start from source, end at target
+    path_nodes = tsp_tour[dummy_idx+1:] + tsp_tour[:dummy_idx]
+    
+    # Remove the dummy node
+    path_nodes = [n for n in path_nodes if n != dummy]
+    
+    # Step 5: Reconstruct full path with actual edges
+    full_path = [path_nodes[0]]
+    total_cost = 0.0
+    
+    for i in range(len(path_nodes) - 1):
+        u, v = path_nodes[i], path_nodes[i + 1]
+        _, segment_path = dist_matrix.get((u, v), (math.inf, None))
+        
+        if segment_path:
+            # Skip first node to avoid duplication
+            full_path.extend(segment_path[1:])
+            segment_cost = dist_matrix[(u, v)][0]
+            total_cost += segment_cost
+    
+    return full_path, total_cost, len(full_path)
+
+
+# ──────────────────────────────────────────────────────────────
 #  Router
 # ──────────────────────────────────────────────────────────────
 
@@ -199,6 +451,12 @@ ALGORITHMS = {
     "Dijkstra":   dijkstra,
     "UCS":        ucs,
     "Greedy BFS": greedy_bfs,
+}
+
+TSP_ALGORITHMS = {
+    "greedy": _tsp_greedy,
+    "brute_force": _tsp_brute_force,
+    "branch_and_bound": _tsp_branch_and_bound,
 }
 
 def find_path(algorithm_name, adjacency, node_coords, source, target):
